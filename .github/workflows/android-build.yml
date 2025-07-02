@@ -1,0 +1,47 @@
+name: Build Aether Weave Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Environment and Build
+        run: |
+          # 1. Install Java and other necessary tools
+          sudo apt-get update
+          sudo apt-get install -y openjdk-11-jdk wget unzip
+
+          # 2. Set JAVA_HOME environment variable for all subsequent commands
+          echo "JAVA_HOME=$(update-java-alternatives -l | head -n 1 | awk '{print $3}')" >> $GITHUB_ENV
+          
+          # 3. Install Android command-line tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip -d $ANDROID_HOME/cmdline-tools
+          sudo mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          
+          # 4. Accept licenses and install the EXACT build tools and platform needed (VERSION 34)
+          yes | sudo $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          sudo $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          
+          # 5. Install Node.js and Cordova
+          npm install -g n
+          sudo n 16
+          npm install -g cordova
+
+          # 6. Prepare and Build the Cordova Project
+          cordova platform add android@12.0.0
+          cordova build android --debug
+
+      - name: Upload APK as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-weave-apk
+          path: platforms/android/app/build/outputs/apk/debug/app-debug.apk
